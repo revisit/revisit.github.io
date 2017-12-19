@@ -227,6 +227,9 @@ const Visualizer = (fps) =>
         // Add the ground plane to the scene.
         scene.add(ground);
 
+        let axis = new THREE.AxisHelper(1000);
+        scene.add(axis);
+
         // Enter animation loop.
         animationLoop();
     };
@@ -262,7 +265,7 @@ const Visualizer = (fps) =>
                     else if (obj.type === "cylinder") {
                         geometry = new THREE.CylinderBufferGeometry(obj.scale[0], obj.scale[1], obj.scale[2], 32, 32);
                         if (obj.vertical === 'z') {
-                            geometry.applyMatrix( new THREE.Matrix4().makeRotationZ( Math.PI / 2 ) );
+                            geometry.applyMatrix( new THREE.Matrix4().makeRotationX( Math.PI / 2 ) );
                         }
                         material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color), overdraw: 0.5 } );
                     }
