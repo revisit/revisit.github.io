@@ -183,7 +183,7 @@ const Controls = () =>
 
         if (searchParams.has('logref')) {
             let urlPath = searchParams.get('logref');
-            if (urlPath.includes('http')) {
+            if (urlPath.includes('http') || urlPath[0] === '/') {
                 loadRefAnimation(urlPath);
             }
             else {
@@ -865,7 +865,7 @@ const Controls = () =>
             visualizers[2].instance.displayFloor(evt.target.checked);
         }
     }
-    
+
     /* ------------------------------------------------------------------------
      * handleLockCamera
      * ------------------------------------------------------------------------
