@@ -190,7 +190,7 @@ const Visualizer = (fps) =>
         scene.add(defaultLight2);
 
         // Ambient light to make sure contrast isn't drastic.
-        let ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        let ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
 
         // Scene background.
@@ -208,8 +208,8 @@ const Visualizer = (fps) =>
         let groundGeometry = new THREE.PlaneGeometry(10000, 10000, 1, 1);
 
         // Transparent and not-shiny ground plane material.
-        let groundMaterial = new THREE.MeshPhongMaterial({
-            color: 0x4dffa6,
+        let groundMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
             transparent: true,
             opacity: 0.6,
             side: THREE.DoubleSide,
@@ -226,6 +226,9 @@ const Visualizer = (fps) =>
 
         // Add the ground plane to the scene.
         scene.add(ground);
+
+        let axis = new THREE.AxisHelper(1000);
+        scene.add(axis);
 
         // Enter animation loop.
         animationLoop();
@@ -257,29 +260,29 @@ const Visualizer = (fps) =>
                 for (let obj of group.objs) {
                     if (obj.type === "box") {
                         geometry = new THREE.BoxBufferGeometry(obj.scale[0], obj.scale[1], obj.scale[2]);
-                        material = new THREE.MeshLambertMaterial( { color: parseInt(obj.color), overdraw: 0.5 } );
+                        material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color), overdraw: 0.5 } );
                     }
                     else if (obj.type === "cylinder") {
                         geometry = new THREE.CylinderBufferGeometry(obj.scale[0], obj.scale[1], obj.scale[2], 32, 32);
-                        // if (obj.vertical === 'z') {
-                        //     geometry.applyMatrix( new THREE.Matrix4().makeRotationZ( Math.PI / 2 ) );
-                        // }
-                        material = new THREE.MeshLambertMaterial( { color: parseInt(obj.color), overdraw: 0.5 } );
+                        if (obj.vertical === 'z') {
+                            geometry.applyMatrix( new THREE.Matrix4().makeRotationX( Math.PI / 2 ) );
+                        }
+                        material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color), overdraw: 0.5 } );
                     }
                     else if (obj.type === "ellipsoid") {
                         geometry = new THREE.SphereBufferGeometry(obj.scale[0] * 0.5, 32, 32);
-                        material = new THREE.MeshLambertMaterial( { color: parseInt(obj.color), overdraw: 0.5, transparent: true } );
+                        material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color), overdraw: 0.5, transparent: true } );
                         let matrix = new THREE.Matrix4();
                         matrix.makeScale(1.0, obj.scale[1] / obj.scale[0], obj.scale[2] / obj.scale[0]);
                         geometry.applyMatrix(matrix);
                     }
                     else if (obj.type === "sphere") {
                         geometry = new THREE.SphereBufferGeometry(obj.diameter, 32, 32);
-                        material = new THREE.MeshLambertMaterial( { color: parseInt(obj.color),  overdraw: 0.5 } );
+                        material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color),  overdraw: 0.5 } );
                     }
                     else if (obj.type === "mesh") {
                         geometry = await loadData(obj.url);
-                        material = new THREE.MeshLambertMaterial( { color: parseInt(obj.color),  overdraw: 0.5 } );
+                        material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color),  overdraw: 0.5 } );
                     }
 
                     material.transparent = true;
