@@ -85,3 +85,5 @@ https://www.marmoset.co/posts/physically-based-rendering-and-you-can-too/
 - 
 
 update url with scene state (time, angle, etc.)
+
+- add THREE js stats and configuration for floor, etc.
