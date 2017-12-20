@@ -227,32 +227,26 @@ const Visualizer = (fps) =>
             for (let obj of group.objs) {
                 if (obj.type === "box") {
                     geometry = new THREE.BoxBufferGeometry(obj.scale[0], obj.scale[1], obj.scale[2]);
-                    material = new THREE.MeshStandardMaterial({ color: parseInt(obj.color), overdraw: 0.5 });
                 }
                 else if (obj.type === "cylinder") {
                     geometry = new THREE.CylinderBufferGeometry(obj.scale[0], obj.scale[1], obj.scale[2], 32, 32);
                     if (obj.vertical === 'z') {
                         geometry.applyMatrix(new THREE.Matrix4().makeRotationX(Math.PI / 2));
                     }
-                    material = new THREE.MeshStandardMaterial({ color: parseInt(obj.color), overdraw: 0.5 });
                 }
                 else if (obj.type === "ellipsoid") {
                     geometry = new THREE.SphereBufferGeometry(obj.scale[0] * 0.5, 32, 32);
-                    material = new THREE.MeshStandardMaterial({ color: parseInt(obj.color), overdraw: 0.5, transparent: true });
-                    let matrix = new THREE.Matrix4();
-                    matrix.makeScale(1.0, obj.scale[1] / obj.scale[0], obj.scale[2] / obj.scale[0]);
-                    geometry.applyMatrix(matrix);
+                    geometry.applyMatrix(new THREE.Matrix4().makeScale(
+                        1.0, obj.scale[1] / obj.scale[0], obj.scale[2] / obj.scale[0]));
                 }
                 else if (obj.type === "sphere") {
                     geometry = new THREE.SphereBufferGeometry(obj.diameter, 32, 32);
-                    material = new THREE.MeshStandardMaterial({ color: parseInt(obj.color),  overdraw: 0.5 });
                 }
                 else if (obj.type === "mesh") {
                     geometry = await loadData(obj.url);
-                    material = new THREE.MeshStandardMaterial({ color: parseInt(obj.color),  overdraw: 0.5 });
                 }
 
-                material.transparent = true;
+                material = new THREE.MeshStandardMaterial({ color: parseInt(obj.color), overdraw: 0.5, transparent: true });
                 let mesh = new THREE.Mesh(geometry, material);
                 mesh.castShadow = true;
 
@@ -269,7 +263,6 @@ const Visualizer = (fps) =>
 
         model.castShadow = true;
         scene.add(model);
-        console.log(scene);
         animation = {model, step, start, stop, frames};
     }
 
