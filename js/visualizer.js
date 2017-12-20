@@ -8,9 +8,10 @@
  *          Kyle Finter,
  *          Garren Ijames,
  *          Brett Spatz,
- *          Jesse Stewart
+ *          Jesse Stewart,
+ *          Anthony Clark
  *
- * Date Last Modified: 11-29-2017
+ * Date Last Modified: 2017-12-19
  * Description:
  *      visualizer.js contains all of the logic that deals with the 3D
  * environment and animation itself. This includes all of Threejs classes
@@ -29,17 +30,12 @@ const Visualizer = (fps) =>
     /*
      * Simple perspective camera with aspect ratio, near and far clipping planes.
      */
-    const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 4000);
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 4000);
 
     /*
      * The visualizer that also holds the camera element.
      */
     const renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
-
-    /*
-     * The area inside of which a log-file can be dropped to be uploaded.
-     */
-    const dropZone = document.getElementById('dropZone');
 
     /*
      * Texture Loader for loading new textures.
@@ -134,7 +130,10 @@ const Visualizer = (fps) =>
      */
     const init = function(windowElem)
     {
-        renderer.setSize(windowElem.clientWidth, windowElem.clientHeight);
+        // Configure the renderer
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(windowElem.innerWidth, windowElem.innerHeight);
+        renderer.shadowMap.enabled = true;
         windowElem.appendChild(renderer.domElement);
 
         const closeBtn = document.createElement('p');
@@ -166,66 +165,34 @@ const Visualizer = (fps) =>
         windowElem.appendChild(cameraToggle);
 
         // Set default camera position.
-        camera.position.set(600, 600, 1000);
+        camera.position.set(250, 500, 1000);
         camera.lookAt(new THREE.Vector3(0,0,0));
 
-        // Spotlight.
-        spotLight = new THREE.SpotLight();
-        spotLight.position.set(0,1000,0);
-        spotLight.angle = .4;
-        spotLight.penumbra = 1;
+        // Add ambient lighting
+        scene.add(new THREE.AmbientLight(0xf0f0f0));
+
+        // Add a spotlight
+        spotLight = new THREE.SpotLight(0xffffff, 1.5);
+        spotLight.position.set(0, 1500, 200);
         spotLight.castShadow = true;
-        spotLight.distance = 2000;
+        spotLight.shadow = new THREE.LightShadow(new THREE.PerspectiveCamera(60, 1, 200, 2000));
+        spotLight.shadow.bias = -0.000222;
+        spotLight.shadow.mapSize.width = 1024;
+        spotLight.shadow.mapSize.height = 1024;
         scene.add(spotLight);
 
-        // Directional light to enhance shadow.
-        let defaultLight1 = new THREE.DirectionalLight(0xffffff, 0.4);
-        defaultLight1.castShadow = true;
-        defaultLight1.position.set(500, 1000, 500);
-        scene.add(defaultLight1);
-
-        let defaultLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
-        defaultLight2.castShadow = true;
-        defaultLight2.position.set(-500, -1000, -500);
-        scene.add(defaultLight2);
-
-        // Ambient light to make sure contrast isn't drastic.
-        let ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add(ambientLight);
-
-        // Scene background.
-        renderer.gammaInput = true;
-        renderer.gammaOutput = true;
-        renderer.setClearColor(0x001a0d, 1.0);
-        renderer.shadowMap.enabled = true;
-
-        // Grid floor and fog to add perspective for model movement.
-        scene.fog = new THREE.Fog(0x001a0d, 1500, 5000);
-        grid = new THREE.GridHelper(10000, 100, 0x001a0d, 0x006633);
-        scene.add(grid);
-
-        // Ground plane geometry matching grid size.
-        let groundGeometry = new THREE.PlaneGeometry(10000, 10000, 1, 1);
-
-        // Transparent and not-shiny ground plane material.
-        let groundMaterial = new THREE.MeshStandardMaterial({
-            color: 0xFFFFFF,
-            transparent: true,
-            opacity: 0.6,
-            side: THREE.DoubleSide,
-            // Helps solve z-plane clipping by off setting the ground plane from the grid.
-            polygonOffset: true,
-            polygonOffsetFactor: 1.0,
-            polygonOffsetUnits: 10.0
-        });
-
-        // Create ground plane and rotate into horizontal position.
+        // Add a ground plane
+        let groundGeometry = new THREE.PlaneGeometry(2000, 2000);
+        groundGeometry.rotateX(- Math.PI / 2);
+        let groundMaterial = new THREE.ShadowMaterial({ opacity: 0.2 });
         ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.receiveShadow = true;
-        ground.rotation.x = -0.5 * Math.PI;
-
-        // Add the ground plane to the scene.
         scene.add(ground);
+
+        grid = new THREE.GridHelper(2000, 100);
+        grid.material.opacity = 0.25;
+        grid.material.transparent = true;
+        scene.add(grid);
 
         let axis = new THREE.AxisHelper(1000);
         scene.add(axis);
@@ -250,54 +217,51 @@ const Visualizer = (fps) =>
             start  = data.start,
             stop   = data.stop;
 
-            for (let group of data.groups) {
-                let comp = new THREE.Group(), // composite group to which we add objects
-                    geometry,
-                    material;
+        for (let group of data.groups) {
+            let comp = new THREE.Group(), // composite group to which we add objects
+                geometry,
+                material;
 
-                comp.name = group.name;
+            comp.name = group.name;
 
-                for (let obj of group.objs) {
-                    if (obj.type === "box") {
-                        geometry = new THREE.BoxBufferGeometry(obj.scale[0], obj.scale[1], obj.scale[2]);
-                        material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color), overdraw: 0.5 } );
+            for (let obj of group.objs) {
+                if (obj.type === "box") {
+                    geometry = new THREE.BoxBufferGeometry(obj.scale[0], obj.scale[1], obj.scale[2]);
+                }
+                else if (obj.type === "cylinder") {
+                    geometry = new THREE.CylinderBufferGeometry(obj.scale[0], obj.scale[1], obj.scale[2], 32, 32);
+                    if (obj.vertical === 'z') {
+                        geometry.applyMatrix(new THREE.Matrix4().makeRotationX(Math.PI / 2));
                     }
-                    else if (obj.type === "cylinder") {
-                        geometry = new THREE.CylinderBufferGeometry(obj.scale[0], obj.scale[1], obj.scale[2], 32, 32);
-                        if (obj.vertical === 'z') {
-                            geometry.applyMatrix( new THREE.Matrix4().makeRotationX( Math.PI / 2 ) );
-                        }
-                        material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color), overdraw: 0.5 } );
-                    }
-                    else if (obj.type === "ellipsoid") {
-                        geometry = new THREE.SphereBufferGeometry(obj.scale[0] * 0.5, 32, 32);
-                        material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color), overdraw: 0.5, transparent: true } );
-                        let matrix = new THREE.Matrix4();
-                        matrix.makeScale(1.0, obj.scale[1] / obj.scale[0], obj.scale[2] / obj.scale[0]);
-                        geometry.applyMatrix(matrix);
-                    }
-                    else if (obj.type === "sphere") {
-                        geometry = new THREE.SphereBufferGeometry(obj.diameter, 32, 32);
-                        material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color),  overdraw: 0.5 } );
-                    }
-                    else if (obj.type === "mesh") {
-                        geometry = await loadData(obj.url);
-                        material = new THREE.MeshStandardMaterial( { color: parseInt(obj.color),  overdraw: 0.5 } );
-                    }
-
-                    material.transparent = true;
-                    let mesh = new THREE.Mesh(geometry, material);
-
-                    if (obj.type === "mesh" && obj.scale !== undefined) {
-                        mesh.scale.set(obj.scale[0], obj.scale[1], obj.scale[2]);
-                    }
-
-                    comp.add(mesh);
+                }
+                else if (obj.type === "ellipsoid") {
+                    geometry = new THREE.SphereBufferGeometry(obj.scale[0] * 0.5, 32, 32);
+                    geometry.applyMatrix(new THREE.Matrix4().makeScale(
+                        1.0, obj.scale[1] / obj.scale[0], obj.scale[2] / obj.scale[0]));
+                }
+                else if (obj.type === "sphere") {
+                    geometry = new THREE.SphereBufferGeometry(obj.diameter, 32, 32);
+                }
+                else if (obj.type === "mesh") {
+                    geometry = await loadData(obj.url);
                 }
 
-                model.add(comp);
+                material = new THREE.MeshStandardMaterial({ color: parseInt(obj.color), overdraw: 0.5, transparent: true });
+                let mesh = new THREE.Mesh(geometry, material);
+                mesh.castShadow = true;
+
+                if (obj.type === "mesh" && obj.scale !== undefined) {
+                    mesh.scale.set(obj.scale[0], obj.scale[1], obj.scale[2]);
+                }
+
+                comp.add(mesh);
             }
 
+            comp.castShadow = true;
+            model.add(comp);
+        }
+
+        model.castShadow = true;
         scene.add(model);
         animation = {model, step, start, stop, frames};
     }
@@ -410,7 +374,7 @@ const Visualizer = (fps) =>
             camera.lookAt(modelPos);
         }
         spotLight.target = lightTarg;
-        renderer.render( scene, camera );
+        renderer.render(scene, camera);
     }
 
 
@@ -522,7 +486,7 @@ const Visualizer = (fps) =>
      */
     const resetCamera = function ()
     {
-        camera.position.set(600, 600, 1000);
+        camera.position.set(250, 500, 1000);
         camera.lookAt(new THREE.Vector3(0, 0, 0));
         camera.updateProjectionMatrix();
     };
@@ -560,8 +524,8 @@ const Visualizer = (fps) =>
      */
     const changeTexture = function(modelName, texturePath)
     {
-        texture = textureLoader.load(texturePath, function( newTexture ) {
-            let newMaterial = new THREE.MeshLambertMaterial( { map: newTexture, overdraw: 0.5 } );
+        texture = textureLoader.load(texturePath, function(newTexture) {
+            let newMaterial = new THREE.MeshLambertMaterial({ map: newTexture, overdraw: 0.5 });
             for (const group of animation.model.children) {
                 if(group.name==modelName) {
                     const oldTransparency = group.children[0].material.opacity;
@@ -572,10 +536,10 @@ const Visualizer = (fps) =>
             }
         },
         function (xhr) {
-          console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
+          console.log((xhr.loaded / xhr.total * 100) + '% loaded');
         },
         function (error) {
-          console.log( 'The texture couldn\'t be loaded.' );
+          console.log('The texture couldn\'t be loaded.');
         });
     };
 
