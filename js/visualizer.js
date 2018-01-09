@@ -240,7 +240,7 @@ const Visualizer = (fps) =>
                         1.0, obj.scale[1] / obj.scale[0], obj.scale[2] / obj.scale[0]));
                 }
                 else if (obj.type === "sphere") {
-                    geometry = new THREE.SphereBufferGeometry(obj.diameter, 32, 32);
+                    geometry = new THREE.SphereBufferGeometry(obj.radius, 32, 32);
                 }
                 else if (obj.type === "mesh") {
                     geometry = await loadData(obj.url);
@@ -263,7 +263,9 @@ const Visualizer = (fps) =>
 
         model.castShadow = true;
         scene.add(model);
-        animation = {model, step, start, stop, frames};
+
+        let initialized = false;
+        animation = {model, step, start, stop, frames, initialized};
     }
 
 
@@ -343,23 +345,34 @@ const Visualizer = (fps) =>
             frame = frame - 1;
         }
 
-        if (isActive)
+        if (isActive) {
             revisit.controls.notify(frame * animation.step);
+        }
+
+        if (!animation.initialized) {
+            frame = 0;
+            animation.initialized = true;
+        }
 
         for (const group of animation.model.children) {
-            group.position.set(animation.frames[frame][group.name].position[0],
-                animation.frames[frame][group.name].position[1],
-                animation.frames[frame][group.name].position[2]
-            );
-            group.quaternion.set(animation.frames[frame][group.name].quaternion[0],
-                animation.frames[frame][group.name].quaternion[1],
-                animation.frames[frame][group.name].quaternion[2],
-                animation.frames[frame][group.name].quaternion[3]
-            );
 
-            modelPos = animation.model.children[0].position;
-            lightTarg = animation.model.children[0];
+            if (group.name in animation.frames[frame]) {
+                group.position.set(
+                    animation.frames[frame][group.name].position[0],
+                    animation.frames[frame][group.name].position[1],
+                    animation.frames[frame][group.name].position[2]
+                );
+                group.quaternion.set(
+                    animation.frames[frame][group.name].quaternion[0],
+                    animation.frames[frame][group.name].quaternion[1],
+                    animation.frames[frame][group.name].quaternion[2],
+                    animation.frames[frame][group.name].quaternion[3]
+                );
+            }
         }
+
+        modelPos = animation.model.children[0].position;
+        lightTarg = animation.model.children[0];
     }
 
 
