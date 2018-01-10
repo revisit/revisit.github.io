@@ -28,7 +28,7 @@ import {
 import 'three/examples/js/controls/OrbitControls';
 import 'three/examples/js/loaders/GLTFLoader';
 // import 'three/examples/js/libs/stats.min';
-import * from './stats';
+import { Stats } from './stats';
 /* global THREE */
 
 import LogToGLTF from './logToGLTF';
@@ -126,6 +126,7 @@ class Visualizer {
 
 
     this.stats = new Stats();
+    // this.stats = Stats();
     container.appendChild(this.stats.dom);
 
 

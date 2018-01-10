@@ -1,16 +1,12 @@
  /* eslint-disable */
 
- (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-  typeof define === 'function' && define.amd ? define(factory) :
-  (global.Stats = factory());
-}(this, (function () { 'use strict';
-
 /**
  * @author mrdoob / http://mrdoob.com/
  */
 
-var Stats = function () {
+// var Stats = function () {
+
+export function Stats() {
 
   var mode = 0;
 
@@ -176,6 +172,4 @@ Stats.Panel = function ( name, fg, bg ) {
 
 };
 
-return Stats;
-
-})));
+// export Stats;
