@@ -23,14 +23,20 @@
 
         <div class="settings-item">
           <div class="settings-button-group">
-            <input class="settings-button" type="button" name="reset-camera" id="reset-camera">
+            <input
+              class="settings-button"
+              type="button"
+              name="reset-camera"
+              id="reset-camera"
+              @click="resetCamera()">
             <label for="reset-camera" class="settings-label">Reset Camera</label>
           </div>
         </div>
 
         <div class="settings-item">
           <div class="toggle-switch-group">
-            <input type="checkbox" name="loopToggle" id="loopToggle" v-model="loopPlayback">
+            <input type="checkbox" name="loopToggle" id="loopToggle" v-model="loopPlayback"
+              @click="setLoopMode()">
             <label for="loopToggle" class="toggle-slider"></label>
             <label for="loopToggle" class="settings-label">Loop Playback</label>
           </div>
@@ -77,6 +83,8 @@
           </div>
         </div>
 
+        <div id="stats-container"></div>
+
       </div>
     </div>
 
@@ -110,24 +118,24 @@
             <i v-else="isPlaying" class="material-icons">play_arrow</i>
           </div>
 
-          <div class="ui-button" @click="time = 0"><i class="material-icons">replay</i></div>
+          <div class="ui-button" @click="time=0"><i class="material-icons">replay</i></div>
 
           <div class="player-text">{{time | formatTime}}</div>
 
           <div class="flex-auto">
-            <input type="range" min="0" max="10" step="0.01"
+            <input type="range" min="0" v-bind:max="timeEnd" step="0.01"
               v-model.number="time"
-              @mousedown="slidingTime = true"
-              @mouseup="slidingTime = false">
+              @mousedown="startTimeSlide"
+              @mouseup="endTimeSlide">
           </div>
 
           <div class="player-text">{{timeEnd | formatTime}}</div>
 
           <div class="flex-20">
-            <input type="range" min="-5" max="5" step="0.5" v-model.number="speed">
+            <input type="range" min="-5" max="5" step="0.5" v-model.number="playbackSpeed">
           </div>
 
-          <div class="player-text" @click="speed = 1">{{speed | formatSpeed}}</div>
+          <div class="player-text" @click="playbackSpeed = 1">{{playbackSpeed | formatSpeed}}</div>
 
         </div>
       </div>
@@ -151,6 +159,7 @@
 
 /* eslint no-unused-expressions: ["error", { "allowShortCircuit": true, "allowTernary": true }] */
 
+
 import Treeselect from '@riophae/vue-treeselect';
 import ColorPicker from './components/ColorPicker';
 import Dropzone from './components/Dropzone';
@@ -164,16 +173,18 @@ export default {
       // Playback parameters
       time: 0,
       timeEnd: 0,
-      isPlaying: false,
-      slidingTime: false,
-      animation: null,
+      playbackSpeed: 1,
 
       // Configuration settings
-      speed: 1,
       loopPlayback: true,
       autoPlay: false,
       currentColor: '#18453B',
+
+      // State
+      isPlaying: false,
       animationAvailable: false,
+      timeIsSliding: false,
+      timeWasPaused: false,
 
       // Display settings
       displaySettings: false,
@@ -186,50 +197,56 @@ export default {
     };
   },
   methods: {
+    setLoopMode() {
+      this.visualizer.setLoop(!this.loopPlayback);
+    },
+    resetCamera() {
+      this.visualizer.resetCamera();
+    },
+    startTimeSlide() {
+      this.timeIsSliding = true;
+      this.timeWasPaused = !this.isPlaying;
+      this.visualizer.pause();
+    },
+    endTimeSlide() {
+      this.timeIsSliding = false;
+      if (!this.timeWasPaused) {
+        this.visualizer.play();
+      }
+    },
     togglePlayPause() {
       this.isPlaying = !this.isPlaying;
-      this.visualizer.togglePlayPause();
+      this.isPlaying ? this.visualizer.play() : this.visualizer.pause();
     },
     changeColor(color) {
-      if (this.animation && this.selections.length > 0) {
-        this.selections.forEach((id) => { this.animation[0].objects[id].color = color; });
-      }
+      this.visualizer.setObjectColor(this.selections, color);
     },
     handleDragOver(status) {
       this.displayDropzone = status || this.$refs.dropzone.isDragover || !this.animationAvailable;
     },
     dataReady(files) {
-      // eslint-disable-next-line
-      // console.log('parent', json);
-
       const jsonData = files[0];
 
       this.animationAvailable = true;
-      // this.animation = json;
       this.displayDropzone = false;
       this.isPlaying = false;
-      this.speed = 1;
+      this.playbackSpeed = 1;
       this.timeEnd = jsonData.duration;
       this.time = 0;
       this.hideSettings();
-      // this.updateObjects();
 
+      this.visualizer.reset();
       this.visualizer.loadAnimation(jsonData);
+      this.visualizer.start();
+
+      this.updateObjects();
     },
     updateObjects() {
       this.selections = [];
 
-      this.animation[0].objects.forEach((obj, idx) => {
-        this.objectNames.push({ id: idx, label: obj.name });
-      });
-
-      // // eslint-disable-next-line
-      // for (const [key, value] of Object.entries(this.animation[0].objects)) {
-      //   this.objectNames.push({ id: key, label: key });
-      // }
-
-      // eslint-disable-next-line
-      // console.log(this.objectNames);
+      this.objectNames = this.visualizer.getObjectNames().map((name, nameI) => ({
+        id: nameI, label: name,
+      }));
 
       this.optionsReady = false;
       this.$nextTick(() => { this.optionsReady = true; });
@@ -241,6 +258,7 @@ export default {
       this.time = 0;
       this.displaySettings = false;
       this.displayDropzone = true;
+      this.visualizer.reset();
     },
     onPaste() {
       // eslint-disable-next-line
@@ -271,6 +289,14 @@ export default {
         this.hideSettings();
       }
     },
+    timeCB(newTime) {
+      this.time = newTime;
+    },
+    loopCB() {
+      this.time = 0;
+      this.visualizer.enable();
+      this.togglePlayPause();
+    },
   },
   filters: {
     formatTime(t) {
@@ -281,77 +307,21 @@ export default {
     },
   },
   mounted() {
-    this.visualizer = new Visualizer(10, 'canvas-container');
-    this.visualizer.start();
-
-    // // Determine the width and height of the renderer wrapper element.
-    // const canvas = this.$refs.canvas;
-    // const ctx = canvas.getContext('2d');
-    // let previousTime = null;
-    // const self = this;
-
-    // function draw() {
-    //   canvas.width = window.innerWidth;
-    //   canvas.height = window.innerHeight;
-
-    //   // eslint-disable-next-line
-    //   // console.log('animation', self.animation);
-
-    //   // if (self.selectedObject) {
-    //   //   self.scene[self.selectedObject].color = self.colors.hex;
-    //   //   self.scene[self.selectedObject].opacity = self.colors.a;
-    //   // }
-
-    //   const frame = self.time / self.animation[0].timeStep;
-    //   const index = Math.floor(frame);
-    //   const alpha = frame - index;
-    //   const invAlpha = 1 - alpha;
-
-    //   const i2 = (index + 1 >= self.animation[0].frames.length) ? index : index + 1;
-    //   const frame1 = self.animation[0].frames[index];
-    //   const frame2 = self.animation[0].frames[i2];
-
-    //   // eslint-disable-next-line
-    //   self.animation[0].objects.forEach((obj) => {
-    //     const w = obj.scale[0];
-    //     const h = obj.scale[1];
-    //     const x = (frame1[obj.name][0] * invAlpha) + (frame2[obj.name][0] * alpha);
-    //     const y = (frame1[obj.name][1] * invAlpha) + (frame2[obj.name][1] * alpha);
-
-    //     ctx.fillStyle = obj.color;
-    //     ctx.fillRect(x, y, w, h);
-    //   });
-    // }
-
-    // function update(timestamp) {
-    //   if (!previousTime) previousTime = timestamp;
-    //   const deltaTime = timestamp - previousTime;
-    //   previousTime = timestamp;
-
-    //   if (!self.slidingTime && self.isPlaying) {
-    //     self.time += (deltaTime / 1000) * self.speed;
-
-    //     if (!self.loopPlayback && (self.time < 0 || self.time > self.timeEnd)) {
-    //       self.isPlaying = false;
-    //       self.time = Math.max(0, Math.min(self.time, self.timeEnd));
-    //     } else if (self.time > self.timeEnd) {
-    //       self.time = 0;
-    //     } else if (self.time < 0) {
-    //       self.time = self.timeEnd;
-    //     }
-    //   }
-
-    //   if (self.animationAvailable) draw();
-    //   window.requestAnimationFrame(update);
-    // }
-
-    // // draw();
-    // window.requestAnimationFrame(update);
+    this.visualizer = new Visualizer('canvas-container', 'stats-container',
+      this.timeCB, this.loopCB);
   },
   components: {
     colorpicker: ColorPicker,
     treeselect: Treeselect,
     dropzone: Dropzone,
+  },
+  watch: {
+    time(newTime) {
+      this.visualizer.setTime(newTime);
+    },
+    playbackSpeed(newSpeed) {
+      this.visualizer.setPlaybackSpeed(newSpeed);
+    },
   },
 };
 </script>

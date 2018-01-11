@@ -4,8 +4,6 @@
  * @author mrdoob / http://mrdoob.com/
  */
 
-// var Stats = function () {
-
 export function Stats() {
 
   var mode = 0;

@@ -151,13 +151,10 @@ class LogToGLTF {
       name: obj.name,
     };
 
-    if (obj.static && obj.static !== false) {
-      if (obj.static.translation) node.translation = obj.static.translation;
-      if (obj.static.rotation) node.rotation = obj.static.rotation;
-      if (obj.static.scale) node.scale = obj.static.scale;
-    } else {
-      this.dynamicNodes.push(this.nodeIndex);
-    }
+    if (obj.translation) node.translation = obj.translation;
+    if (obj.rotation) node.rotation = obj.rotation;
+    if (obj.scale) node.scale = obj.scale;
+    if (!obj.static || obj.static === false) this.dynamicNodes.push(this.nodeIndex);
 
     this.glTFObject.nodes.push(node);
 
@@ -205,6 +202,9 @@ class LogToGLTF {
         meshData = new CubeMesh(this.bufferIndex, this.viewIndex, this.accessorIndex, materialI);
       } else if (objMesh === 'sphere') {
         meshData = new SphereMesh(this.bufferIndex, this.viewIndex, this.accessorIndex, materialI);
+      } else {
+        // eslint-disable-next-line
+        console.warn(`Unhandled mesh type: ${objMesh}`);
       }
 
       Array.prototype.push.apply(this.glTFObject.buffers, meshData.buffers);

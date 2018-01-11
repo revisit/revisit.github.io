@@ -7,6 +7,8 @@
  *
  */
 
+/* eslint no-param-reassign: ["error", { "props": false }] */
+
 // TODO: teardown visualization after new log is loaded
 
 import {
@@ -23,25 +25,81 @@ import {
   Mesh,
   GridHelper,
   AnimationMixer,
+  LoopOnce, LoopRepeat,
 } from 'three';
 
 import 'three/examples/js/controls/OrbitControls';
 import 'three/examples/js/loaders/GLTFLoader';
-// import 'three/examples/js/libs/stats.min';
 import { Stats } from './stats';
 /* global THREE */
 
 import LogToGLTF from './logToGLTF';
 
 
-// // Three.js core variables
-// let scene, camera, renderer, mixer, clip, action, clock, axis;
-// // Thee.js extras
-// let controls, stats, loader, gui;
+const DEFAULT_CAMERA_POSITION = [-8, 8, 8];
+// const DEFALUT_CAMERA_LOOKAT = [-10, 0, -100];
+
+
+function onWindowResize(vis) {
+  return () => {
+    vis.camera.aspect = window.innerWidth / window.innerHeight;
+    vis.camera.updateProjectionMatrix();
+    vis.renderer.setSize(window.innerWidth, window.innerHeight);
+  };
+}
+
+
+function disposeHierarchy(node, callback) {
+  for (let i = node.children.length - 1; i >= 0; i -= 1) {
+    const child = node.children[i];
+    disposeHierarchy(child, callback);
+    callback(child);
+  }
+}
+
+
+function disposeNode(parentObject) {
+  parentObject.traverse((node) => {
+    if (node instanceof THREE.Mesh) {
+      if (node.geometry) {
+        node.geometry.dispose();
+      }
+      if (node.material) {
+        let materialArray;
+        if (node.material instanceof THREE.MeshFaceMaterial
+          || node.material instanceof THREE.MultiMaterial) {
+          materialArray = node.material.materials;
+        } else if (node.material instanceof Array) {
+          materialArray = node.material;
+        }
+        if (materialArray) {
+          materialArray.forEach((mtrl) => {
+            if (mtrl.map) mtrl.map.dispose();
+            if (mtrl.lightMap) mtrl.lightMap.dispose();
+            if (mtrl.bumpMap) mtrl.bumpMap.dispose();
+            if (mtrl.normalMap) mtrl.normalMap.dispose();
+            if (mtrl.specularMap) mtrl.specularMap.dispose();
+            if (mtrl.envMap) mtrl.envMap.dispose();
+            mtrl.dispose();
+          });
+        } else {
+          if (node.material.map) node.material.map.dispose();
+          if (node.material.lightMap) node.material.lightMap.dispose();
+          if (node.material.bumpMap) node.material.bumpMap.dispose();
+          if (node.material.normalMap) node.material.normalMap.dispose();
+          if (node.material.specularMap) node.material.specularMap.dispose();
+          if (node.material.envMap) node.material.envMap.dispose();
+          node.material.dispose();
+        }
+      }
+    }
+  });
+}
+
 
 class Visualizer {
 
-  constructor(fps, containerID) {
+  constructor(containerID, statsID, timeCB, loopCB) {
     // TODO: detect stuff
     // if (!Detector.webgl) {
     //   const warning = Detector.getWebGLErrorMessage();
@@ -50,21 +108,16 @@ class Visualizer {
 
 
     // Visualization state
-    this.time = 0;
-    this.isPlaying = false;
     this.isShutdown = true;
-    this.playbackSpeed = 1;
 
 
     // TODO: pass in the actual element instead?
     const container = document.getElementById(containerID);
+    const statsContainer = document.getElementById(statsID);
 
     // TODO: should these be passed in?
     const width = window.innerWidth;
     const height = window.innerHeight;
-
-
-    this.updateInterval = 1000 / fps;
 
 
     this.scene = new Scene();
@@ -94,8 +147,7 @@ class Visualizer {
 
     // fov in degrees, aspect ratio, near clip, far clip
     this.camera = new PerspectiveCamera(60, width / height, 0.01, 100);
-    this.camera.position.set(-8, 8, 8);
-    this.camera.lookAt(0, 0, 0);
+    this.camera.position.set(...DEFAULT_CAMERA_POSITION);
 
 
     const groundMaterial = new ShadowMaterial({ opacity: 0.1 });
@@ -113,6 +165,7 @@ class Visualizer {
 
 
     this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+    // this.controls.target.set(...DEFALUT_CAMERA_LOOKAT);
 
 
     this.axis = new AxesHelper(100);
@@ -126,32 +179,32 @@ class Visualizer {
 
 
     this.stats = new Stats();
-    // this.stats = Stats();
-    container.appendChild(this.stats.dom);
+    this.stats.dom.style.cssText = 'position:relative;top:0;left:0;cursor:pointer;opacity:0.9;z-index:10000';
+    statsContainer.appendChild(this.stats.dom);
 
 
-    window.addEventListener('resize', this.onWindowResize, false);
+    this.mixer = null;
+    this.clips = [];
+    this.actions = [];
 
 
-    // const geometry = new BoxBufferGeometry();
-    // const material = new MeshStandardMaterial();
-    // const mesh = new THREE.Mesh(geometry, material);
-    // mesh.castShadow = true;
-    // mesh.position.y = 2;
-    // this.scene.add(mesh);
+    this.timeCB = timeCB;
+    this.loopCB = loopCB;
+
+
+    window.addEventListener('resize', onWindowResize(this), false);
   }
 
 
   loadAnimation(log) {
+    // TODO: validate log file here
+    this.objNames = log.objects.map(obj => obj.name);
+
     const converter = new LogToGLTF();
     const gltf = converter.convert(log);
 
-    // console.log(JSON.stringify(gltf, null, '  '));
-
-
     this.loader.parse(
       // glTF data in JSON format
-      // gltf,
       JSON.stringify(gltf, null, '  '),
 
       // Path to resources
@@ -167,23 +220,41 @@ class Visualizer {
           }
         });
 
+        this.loadedScene = data.scene;
         this.scene.add(data.scene);
 
         this.mixer = new AnimationMixer(data.scene);
         this.clips = data.animations;
+        this.actions = this.clips.map(clip => this.mixer.clipAction(clip));
 
-        this.clips.forEach((clip) => {
-          const action = this.mixer.clipAction(clip);
+        this.actions.forEach((action) => {
           action.play();
           action.paused = true;
+          // action.enabled = true;
+          // action.clampWhenFinished = ...;
+          // action.isRunning(); <-- read-only
+          // action.startAt(mixer.time + 0.5).play();
+          // action.weight = ...;
+          // action.getEffectiveWeight();
+          // action.setEffectiveWeight();
+          // action.reset().fadeIn(0.25).play();
+          // action.fadeOut(0.25).play();
+          // action.timeScale = 1;
+          // action.getEffectiveTimeScale();
+          // action.setEffectiveTimeScale();
+          // action.warp(timeScaleNow, destTimeScale, 4).play();
+          // action.loop = +value;
+          // action.repetitions = +value;
+        });
+
+        this.mixer.addEventListener('finished', () => {
+          this.loopCB();
         });
 
         // data.animations; // Array<THREE.AnimationClip>
         // data.scene;      // THREE.Scene
         // data.scenes;     // Array<THREE.Scene>
         // data.cameras;    // Array<THREE.Camera>
-
-        // createGUI();
       },
 
       // onError callback function
@@ -195,110 +266,118 @@ class Visualizer {
   }
 
 
-  getTime() {
-    return this.time;
-  }
   setTime(newTime) {
-    this.time = newTime;
-  }
-
-
-  getIsPlaying() {
-    return this.isPlaying;
-  }
-  setIsPlaying(newVal) {
-    this.isPlaying = newVal;
-  }
-
-
-  getIsShutdown() {
-    return this.isShutdown;
-  }
-  setIsShutdown(newVal) {
-    this.isShutdown = newVal;
-  }
-
-
-  getPlaybackSpeed() {
-    return this.playbackSpeed;
-  }
-  setPlaybackSpeed(newPlaybackSpeed) {
-    this.playbackSpeed = newPlaybackSpeed;
-  }
-
-
-  togglePlayPause() {
-    this.isPlaying = !this.isPlaying;
-
-    this.clips.forEach((clip) => {
-      const action = this.mixer.clipAction(clip);
-      action.paused = !this.isPlaying;
+    this.actions.forEach((action) => {
+      action.time = newTime;
     });
   }
 
 
-  // reset() {
+  setPlaybackSpeed(newTimeScale) {
+    this.actions.forEach((action) => {
+      action.timeScale = newTimeScale;
+    });
+  }
 
-  // }
+
+  resetCamera() {
+    this.controls.reset();
+  }
 
 
-  // shutdown() {
+  setLoop(loop) {
+    const mode = loop ? LoopRepeat : LoopOnce;
+    this.actions.forEach((action) => {
+      action.setLoop(mode, Infinity);
+    });
+  }
 
-  // }
+
+  play() {
+    this.actions.forEach((action) => {
+      action.paused = false;
+    });
+  }
+
+
+  pause() {
+    this.actions.forEach((action) => {
+      action.paused = true;
+    });
+  }
+
+
+  enable() {
+    this.actions.forEach((action) => {
+      if (!action.enabled) action.reset();
+    });
+  }
+
+
+  getObjectNames() {
+    return this.objNames;
+  }
+
+
+  setObjectColor(objIdxs, color) {
+    objIdxs.forEach((objI) => {
+      const obj = this.scene.getObjectByName(this.objNames[objI]);
+      if (obj) obj.material.color.set(color);
+    });
+  }
+
+  reset() {
+    this.isShutdown = true;
+
+
+    if (this.loadedScene) {
+      disposeHierarchy(this.loadedScene, disposeNode);
+      this.scene.remove(this.loadedScene);
+    }
+
+
+    this.actions.forEach((action) => {
+      this.mixer.uncacheAction(action);
+    });
+
+
+    this.clips.forEach((clip) => {
+      this.mixer.uncacheClip(clip);
+    });
+
+    // mixer.uncacheRoot(root);
+
+    this.objNames = [];
+    this.actions = [];
+    this.clips = [];
+    this.mixer = null;
+  }
 
 
   start() {
-    let then = Date.now();
+    this.isShutdown = false;
 
     const loop = () => {
-      requestAnimationFrame(loop);
+      if (!this.isShutdown) {
+        requestAnimationFrame(loop);
 
-      const now = Date.now();
-      const delta = now - then;
-
-      // update();
-
-      if (delta) { // } >= interval) {
-        // render();
         this.stats.begin();
+
+        if (this.actions.length > 0 && this.actions[0].isRunning()) {
+          this.timeCB(this.actions[0].time);
+        }
+
         if (this.mixer) this.mixer.update(this.clock.getDelta());
+
         this.renderer.render(this.scene, this.camera);
-        then = Date.now();
+
         this.stats.end();
       }
     };
 
     loop();
   }
-
-  onWindowResize() {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-  }
 }
 
 
 export default Visualizer;
-
-
-// var mesh;
-
-// // Create an AnimationMixer, and get the list of AnimationClip instances
-// var mixer = new THREE.AnimationMixer( mesh );
-// var clips = mesh.animations;
-
-// // Update the mixer on each frame
-// function update () {
-//     mixer.update( deltaSeconds );
-// }
-
-// // Play a specific animation
-// var clip = THREE.AnimationClip.findByName( clips, 'dance' );
-// var action = mixer.clipAction( clip );
-// action.play();
-
-// // Play all animations
-// clips.forEach( function ( clip ) {
-//     mixer.clipAction( clip ).play();
-// } );

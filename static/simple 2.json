@@ -5,9 +5,8 @@
     {
       "name": "cubeA",
       "mesh": "cube",
-      "static": {
-        "translation": [-1, 0, 0]
-      }
+      "static": true,
+      "translation": [-1, 0, 0]
     },
     {
       "name": "cubeB",
@@ -15,9 +14,8 @@
       "material": {
         "color": [1.000, 0.766, 0.336, 1.0]
       },
-      "static": {
-        "translation": [1, 0, 0]
-      }
+      "static": true,
+      "translation": [1, 0, 0]
     },
     {
       "name": "cube1",
@@ -25,11 +23,10 @@
       "material": {
         "color": [1.000, 0.766, 0.336, 1.0]
       },
-      "static": {
-        "translation": [-10, 0, 0],
-        "rotation": [0.578, -0.403, -0.390, 0.593],
-        "scale": [1, 2, 3]
-      }
+      "static": true,
+      "translation": [-10, 0, 0],
+      "rotation": [0.578, -0.403, -0.390, 0.593],
+      "scale": [1, 2, 3]
     },
     {
       "name": "sphere1",
@@ -45,9 +42,8 @@
       "material": {
         "color": [1.000, 0.766, 0.335, 1.0]
       },
-      "static": {
-        "translation": [0, 3, 0]
-      }
+      "static": true,
+      "translation": [0, 3, 0]
     },
     {
       "name": "sphere3",
@@ -56,11 +52,10 @@
         "roughness": 0.3,
         "metallic": 0.9
       },
-      "static": {
-        "translation": [3, 0, 0],
-        "rotation": [0.578, -0.403, -0.390, 0.593],
-        "scale": [1, 2, 3]
-      }
+      "static": true,
+      "translation": [3, 0, 0],
+      "rotation": [0.578, -0.403, -0.390, 0.593],
+      "scale": [1, 2, 3]
     }
   ],
   "frames": [

@@ -1,3 +1,16 @@
+
+Current Tabs:
+- https://skyronic.com/blog/vuejs-internals-computed-properties
+- https://material.io/color/#!/?view.left=0&view.right=0
+- https://gomakethings.com/how-to-update-a-url-without-reloading-the-page-using-vanilla-javascript/
+
+Tasks:
+- debounce color picker (lodash)
+- watch time and update visualizer
+
+
+
+
 # Revisit
 
 > An online visualizer for mechanical simulations.
