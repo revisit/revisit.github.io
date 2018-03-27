@@ -8,7 +8,10 @@ Tasks:
 - debounce color picker (lodash)
 - watch time and update visualizer
 
-
+Logger tasks:
+- add id to use in place of name for lookup in frames
+- is duration necessary?
+- handle material depth https://stackoverflow.com/questions/15994944/transparent-objects-in-threejs
 
 
 # Revisit

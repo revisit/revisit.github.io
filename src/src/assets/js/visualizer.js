@@ -150,7 +150,7 @@ class Visualizer {
     this.camera.position.set(...DEFAULT_CAMERA_POSITION);
 
 
-    const groundMaterial = new ShadowMaterial({ opacity: 0.1 });
+    const groundMaterial = new ShadowMaterial({ opacity: 0.8 });
     const groundGeometry = new PlaneGeometry(100, 100);
     groundGeometry.rotateX(-Math.PI / 2);
     this.ground = new Mesh(groundGeometry, groundMaterial);
@@ -168,7 +168,7 @@ class Visualizer {
     // this.controls.target.set(...DEFALUT_CAMERA_LOOKAT);
 
 
-    this.axis = new AxesHelper(100);
+    this.axis = new AxesHelper(50);
     this.scene.add(this.axis);
 
 

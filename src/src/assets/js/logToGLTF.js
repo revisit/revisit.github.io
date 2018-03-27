@@ -7,7 +7,7 @@
  *
  */
 
-import { CubeMesh, SphereMesh, createStandardPrimitives } from './URIBuffers';
+import { CubeMesh, SphereMesh, CylinderMesh, createStandardPrimitives } from './URIBuffers';
 
 // https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/README.md
 
@@ -197,15 +197,29 @@ class LogToGLTF {
       primitives = createStandardPrimitives(this.cached.buffers[objMesh].accessorI, materialI);
     } else {
       // Completely new mesh
-      let meshData;
+      // let meshData;
+      let Creator;
       if (objMesh === 'cube') {
-        meshData = new CubeMesh(this.bufferIndex, this.viewIndex, this.accessorIndex, materialI);
+        // meshData = new CubeMesh(this.bufferIndex, this.viewIndex,
+        //    this.accessorIndex, materialI);
+        Creator = CubeMesh;
       } else if (objMesh === 'sphere') {
-        meshData = new SphereMesh(this.bufferIndex, this.viewIndex, this.accessorIndex, materialI);
+        // meshData = new SphereMesh(this.bufferIndex, this.viewIndex,
+        //    this.accessorIndex, materialI);
+        Creator = SphereMesh;
+      } else if (objMesh === 'cylinder') {
+        // meshData = new CylinderMesh(this.bufferIndex, this.viewIndex,
+        //    this.accessorIndex, materialI);
+        Creator = CylinderMesh;
       } else {
         // eslint-disable-next-line
         console.warn(`Unhandled mesh type: ${objMesh}`);
+        // meshData = new CubeMesh(this.bufferIndex, this.viewIndex,
+        //    this.accessorIndex, materialI);
+        Creator = CubeMesh;
       }
+
+      const meshData = new Creator(this.bufferIndex, this.viewIndex, this.accessorIndex, materialI);
 
       Array.prototype.push.apply(this.glTFObject.buffers, meshData.buffers);
       Array.prototype.push.apply(this.glTFObject.bufferViews, meshData.views);
@@ -235,12 +249,15 @@ class LogToGLTF {
     if (!material.metallic) material.metallic = DEFAULT_METALLIC;
     if (!material.roughness) material.roughness = DEFAULT_ROUGHNESS;
 
-    const materialI = this.cached.materials.findIndex(
-      cachedMaterial => materialEqual(material, cachedMaterial));
+    // const materialI = this.cached.materials.findIndex(
+    //   cachedMaterial => materialEqual(material, cachedMaterial));
 
-    if (materialI >= 0) {
-      return { materialI, isNew: false };
-    }
+    // TODO: let some objects share materials. Setting isNew to true gives every obejct
+    // a unique material.
+
+    // if (materialI >= 0) {
+    //   return { materialI, isNew: true };
+    // }
 
     return { materialI: this.createMaterial(material), isNew: true };
   }
@@ -268,7 +285,7 @@ class LogToGLTF {
   createAnimations() {
     // Setup time data
     const timeEnd = this.logObject.duration;
-    const timeSteps = (timeEnd / this.logObject.timeStep) + 1;
+    const timeSteps = Math.round(timeEnd / this.logObject.timeStep) + 1;
     const timeData = new Float32Array(linspace(0, timeEnd, timeSteps));
     const timeByteLength = timeData.length * BYTES_IN_FLOAT;
     const timeURI = float32ArrayToBase64(timeData);
@@ -283,6 +300,7 @@ class LogToGLTF {
     this.dynamicNodes.forEach((nodeI) => {
       const name = this.logObject.objects[nodeI].name;
       const data = this.logObject.frames[0][name];
+      // console.log(name, data);
       if (data.t) {
         animProps.push({
           name,
@@ -291,6 +309,7 @@ class LogToGLTF {
           animType: 'translation',
           valueType: 'VEC3',
           data: data.t.slice(0),
+          prev: data.t.slice(0),
           min: data.t.slice(0),
           max: data.t.slice(0),
         });
@@ -303,6 +322,7 @@ class LogToGLTF {
           animType: 'rotation',
           valueType: 'VEC4',
           data: data.r.slice(0),
+          prev: data.r.slice(0),
           min: data.r.slice(0),
           max: data.r.slice(0),
         });
@@ -315,19 +335,29 @@ class LogToGLTF {
           animType: 'scale',
           valueType: 'VEC3',
           data: data.s.slice(0),
+          prev: data.s.slice(0),
           min: data.s.slice(0),
           max: data.s.slice(0),
         });
       }
     });
 
+    // console.log(this.logObject.frames.length);
+
     this.logObject.frames.slice(1).forEach((frame) => {
       animProps.forEach((prop, propI) => {
-        frame[prop.name][prop.dataType].forEach((value, valueI) => {
-          prop.data.push(value);
-          animProps[propI].min[valueI] = Math.min(prop.min[valueI], value);
-          animProps[propI].max[valueI] = Math.max(prop.max[valueI], value);
-        });
+        // If data exists for this frame
+        if (frame[prop.name] && frame[prop.name][prop.dataType]) {
+          frame[prop.name][prop.dataType].forEach((value, valueI) => {
+            prop.data.push(value);
+            animProps[propI].prev[valueI] = value;
+            animProps[propI].min[valueI] = Math.min(prop.min[valueI], value);
+            animProps[propI].max[valueI] = Math.max(prop.max[valueI], value);
+          });
+        } else {
+          // Copy from previous
+          Array.prototype.push.apply(prop.data, prop.prev);
+        }
       });
     });
 

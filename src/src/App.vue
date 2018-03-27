@@ -132,7 +132,7 @@
           <div class="player-text">{{timeEnd | formatTime}}</div>
 
           <div class="flex-20">
-            <input type="range" min="-5" max="5" step="0.5" v-model.number="playbackSpeed">
+            <input type="range" min="-5" max="5" step="0.25" v-model.number="playbackSpeed">
           </div>
 
           <div class="player-text" @click="playbackSpeed = 1">{{playbackSpeed | formatSpeed}}</div>
